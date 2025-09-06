@@ -5,7 +5,7 @@ const API_URL = '/api';
 let currentSessionId = null;
 
 // DOM elements
-let chatMessages, chatInput, sendButton, totalCourses, courseTitles;
+let chatMessages, chatInput, sendButton, totalCourses, courseTitles, newChatButton;
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
     sendButton = document.getElementById('sendButton');
     totalCourses = document.getElementById('totalCourses');
     courseTitles = document.getElementById('courseTitles');
+    newChatButton = document.getElementById('newChatButton');
     
     setupEventListeners();
     createNewSession();
@@ -28,6 +29,9 @@ function setupEventListeners() {
     chatInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') sendMessage();
     });
+    
+    // New chat button
+    newChatButton.addEventListener('click', createNewSession);
     
     
     // Suggested questions
@@ -179,10 +183,38 @@ function addMessage(content, type, sources = null, isWelcome = false) {
     let html = `<div class="message-content">${displayContent}</div>`;
     
     if (sources && sources.length > 0) {
+        // Debug: Log sources structure
+        console.log('Sources received:', sources);
+        
+        // Format sources - handle both string and object formats
+        const formattedSources = sources.map((source, index) => {
+            console.log(`Processing source ${index}:`, source, 'Type:', typeof source);
+            
+            if (typeof source === 'string') {
+                // Legacy string format - just return as text
+                console.log('  -> Using as string:', source);
+                return source;
+            } else if (source && typeof source === 'object' && source.text) {
+                // New object format with potential link
+                console.log('  -> Object format, text:', source.text, 'link:', source.link);
+                if (source.link) {
+                    return `<a href="${source.link}" target="_blank" rel="noopener noreferrer">${source.text}</a>`;
+                } else {
+                    return source.text;
+                }
+            } else {
+                // Fallback for unexpected formats
+                console.log('  -> Fallback, converting to string:', String(source));
+                return String(source);
+            }
+        });
+        
         html += `
             <details class="sources-collapsible">
                 <summary class="sources-header">Sources</summary>
-                <div class="sources-content">${sources.join(', ')}</div>
+                <div class="sources-content">
+                    ${formattedSources.map(source => `<div class="source-item">${source}</div>`).join('')}
+                </div>
             </details>
         `;
     }

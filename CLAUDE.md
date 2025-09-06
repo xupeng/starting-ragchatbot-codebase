@@ -122,3 +122,4 @@ Lesson Link: [url]
 - Documents auto-loaded from `../docs` on startup
 - Session-based conversation history with configurable limits
 - Claude intelligently chooses between direct answers and tool-assisted search
+- the server is running, no need to start it.

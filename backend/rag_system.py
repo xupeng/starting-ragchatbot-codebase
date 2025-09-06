@@ -119,11 +119,16 @@ class RAGSystem:
         if session_id:
             history = self.session_manager.get_conversation_history(session_id)
         
-        # Generate response using AI with search function
+        # Generate response using AI with multiple tools
+        tools = [
+            self.search_manager.search_course_content,
+            self.search_manager.get_course_outline
+        ]
+        
         response = self.ai_generator.generate_response(
             query=prompt,
             conversation_history=history,
-            search_function=self.search_manager.search_course_content
+            tools=tools
         )
         
         # Get sources from the search manager

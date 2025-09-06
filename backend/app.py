@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Union, Dict, Any
 import os
 import traceback
 
@@ -57,10 +57,15 @@ class QueryRequest(BaseModel):
     query: str
     session_id: Optional[str] = None
 
+class SourceItem(BaseModel):
+    """Model for a source with optional link"""
+    text: str
+    link: Optional[str] = None
+
 class QueryResponse(BaseModel):
     """Response model for course queries"""
     answer: str
-    sources: List[str]
+    sources: List[Union[str, Dict[str, Optional[str]]]]
     session_id: str
 
 class CourseStats(BaseModel):
@@ -93,9 +98,22 @@ async def query_documents(request: QueryRequest):
         logger.info(f"   答案长度: {len(answer)} 字符")
         logger.info(f"   来源数量: {len(sources)}")
         
+        # Convert sources to proper format for frontend
+        formatted_sources = []
+        for source in sources:
+            if isinstance(source, dict) and 'text' in source:
+                # New format with link information - keep as dict for JSON serialization
+                formatted_sources.append({
+                    'text': source['text'],
+                    'link': source.get('link')
+                })
+            else:
+                # Legacy string format
+                formatted_sources.append(str(source))
+        
         return QueryResponse(
             answer=answer,
-            sources=sources,
+            sources=formatted_sources,
             session_id=session_id
         )
     except Exception as e:

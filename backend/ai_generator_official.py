@@ -1,6 +1,6 @@
 from google import genai
 from google.genai import types
-from typing import List, Optional, Dict, Any, Callable
+from typing import List, Optional, Dict, Any, Callable, Union
 import logging
 import os
 
@@ -36,29 +36,34 @@ class OfficialGeminiGenerator:
     
     def generate_response(self, query: str,
                          conversation_history: Optional[str] = None,
-                         search_function: Optional[Callable] = None) -> str:
+                         tools: Optional[Union[Callable, List[Callable]]] = None) -> str:
         """
         使用官方Gemini API生成响应，支持自动函数调用
         
         Args:
             query: 用户的问题或请求
             conversation_history: 之前的对话历史
-            search_function: 可用的搜索函数
+            tools: 可用的工具函数，可以是单个函数或函数列表
             
         Returns:
             生成的响应文本
         """
         
         # 构建系统提示词
-        system_prompt = """你是一个专业的课程材料助手。当用户询问关于课程内容、大纲、章节或教育材料的问题时，你应该使用search_course_content函数来查找相关信息。
+        system_prompt = """你是一个专业的课程材料助手。你有两个主要工具来帮助用户：
+
+1. search_course_content - 用于搜索课程内容、章节详情等
+2. get_course_outline - 用于获取完整的课程大纲信息
 
 重要指导原则：
-- 对于课程相关问题（如课程大纲、内容、章节等），总是先使用搜索工具
+- 对于课程大纲相关问题（如"课程大纲"、"课程结构"、"有哪些课程"、"课程包含什么内容"），使用 get_course_outline 函数
+- 对于具体课程内容问题（如特定章节内容、技术细节等），使用 search_course_content 函数
+- 课程大纲查询应返回：课程标题、课程链接、教师信息、完整的课程列表（课程编号和标题）
 - 基于搜索结果提供准确、有用的回答
 - 保持回答简洁明了
 - 对于一般对话（如问候），直接回答即可
 
-请根据用户的问题提供帮助。"""
+请根据用户的问题选择合适的工具并提供帮助。"""
         
         # 构建内容
         full_prompt = system_prompt
@@ -75,9 +80,17 @@ class OfficialGeminiGenerator:
         
         # 配置生成参数
         config_kwargs = {}
-        if search_function:
-            # 使用自动函数调用
-            config_kwargs["tools"] = [search_function]
+        if tools:
+            # 处理工具参数 - 支持单个函数或函数列表
+            if callable(tools):
+                # 单个函数
+                config_kwargs["tools"] = [tools]
+            elif isinstance(tools, (list, tuple)):
+                # 函数列表
+                config_kwargs["tools"] = list(tools)
+            else:
+                # 其他情况，尝试转换为列表
+                config_kwargs["tools"] = [tools]
         
         config = types.GenerateContentConfig(**config_kwargs)
         
@@ -86,8 +99,14 @@ class OfficialGeminiGenerator:
             self.logger.info(f"🚀 发送官方Gemini API请求")
             self.logger.info(f"   模型: {self.model}")
             
-            if search_function:
-                self.logger.info(f"   包含搜索工具: {search_function.__name__}")
+            if tools:
+                if callable(tools):
+                    self.logger.info(f"   包含工具: {tools.__name__}")
+                elif isinstance(tools, (list, tuple)):
+                    tool_names = [f.__name__ if callable(f) else str(f) for f in tools]
+                    self.logger.info(f"   包含工具: {', '.join(tool_names)}")
+                else:
+                    self.logger.info(f"   包含工具: {tools}")
             
             # 记录查询预览
             query_preview = query[:100] if len(query) > 100 else query
