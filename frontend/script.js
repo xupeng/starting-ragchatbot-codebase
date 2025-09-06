@@ -71,7 +71,44 @@ async function sendMessage() {
             })
         });
 
-        if (!response.ok) throw new Error('Query failed');
+        if (!response.ok) {
+            // 尝试获取详细的错误信息
+            let errorDetail = `HTTP ${response.status}: ${response.statusText}`;
+            
+            try {
+                const errorData = await response.json();
+                if (errorData.detail) {
+                    if (typeof errorData.detail === 'object') {
+                        // 详细错误对象
+                        errorDetail = `❌ ${errorData.detail.error || 'Unknown error'}`;
+                        
+                        if (errorData.detail.type) {
+                            errorDetail += `\n\n🔍 **错误类型**: ${errorData.detail.type}`;
+                        }
+                        
+                        if (errorData.detail.help) {
+                            errorDetail += `\n\n💡 **建议**: ${errorData.detail.help}`;
+                        }
+                        
+                        // 添加调试信息
+                        errorDetail += '\n\n🔧 **调试信息**:';
+                        errorDetail += '\n- 请检查服务器控制台日志';
+                        errorDetail += '\n- 确认 API 服务正在运行';
+                        errorDetail += '\n- 验证网络连接';
+                        
+                    } else {
+                        // 简单错误字符串
+                        errorDetail = `❌ ${errorData.detail}`;
+                    }
+                }
+            } catch (parseError) {
+                // JSON 解析失败，使用原始响应
+                const text = await response.text();
+                errorDetail += `\n\n服务器响应: ${text.substring(0, 200)}${text.length > 200 ? '...' : ''}`;
+            }
+            
+            throw new Error(errorDetail);
+        }
 
         const data = await response.json();
         
@@ -85,9 +122,29 @@ async function sendMessage() {
         addMessage(data.answer, 'assistant', data.sources);
 
     } catch (error) {
-        // Replace loading message with error
+        // Replace loading message with detailed error
         loadingMessage.remove();
-        addMessage(`Error: ${error.message}`, 'assistant');
+        
+        let errorMessage = '抱歉，处理您的查询时遇到了问题。\n\n';
+        
+        if (error.message.includes('Failed to fetch')) {
+            errorMessage += '❌ **网络连接失败**\n\n';
+            errorMessage += '💡 **可能的原因**:\n';
+            errorMessage += '- 服务器未运行\n';
+            errorMessage += '- 网络连接问题\n';
+            errorMessage += '- 防火墙阻止连接\n\n';
+            errorMessage += '🔧 **建议**:\n';
+            errorMessage += '- 确认服务器正在运行 (uvicorn app:app --reload)\n';
+            errorMessage += '- 检查服务器地址是否正确';
+        } else {
+            errorMessage += error.message;
+        }
+        
+        addMessage(errorMessage, 'assistant');
+        
+        // 在控制台记录详细错误用于调试
+        console.error('Query error details:', error);
+        
     } finally {
         chatInput.disabled = false;
         sendButton.disabled = false;

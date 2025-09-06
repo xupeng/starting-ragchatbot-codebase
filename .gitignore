@@ -16,6 +16,7 @@ ENV/
 
 # ChromaDB
 backend/chroma_db/
+chroma_db/
 
 # Uploads
 uploads/
@@ -25,6 +26,13 @@ uploads/
 .idea/
 *.swp
 *.swo
+.claude/
+
+# Test and debug scripts
+test_*.py
+debug_*.py
+check_*.py
+load_data.py
 
 # OS
 .DS_Store
